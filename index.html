@@ -342,10 +342,8 @@ select.search{appearance:auto}
     <div class="panel stack" style="gap:12px">
       <div>
         <h3>Tiendas cerca de ti</h3>
-        <p class="small muted">Toca una tienda y se abre el mapa con sus locales ordenados desde el más cercano. Si escribes tu comuna o dirección, buscamos cerca de ahí; si lo dejas vacío, el mapa usa la ubicación de tu celular.</p>
+        <p class="small muted">Toca «Más cercano» y se abre el mapa con los locales de esa tienda más cerca de donde estás (usa la ubicación de tu celular).</p>
       </div>
-      <label class="small" for="loc"><b>Tu comuna o dirección</b> (opcional)</label>
-      <input id="loc" class="search" placeholder="Ej: Maipú, o Av. Pajaritos 1234, Maipú" autocomplete="off">
       <div id="chains"></div>
       <form class="addrow" id="addChain"><input id="newChain" class="search" placeholder="¿Falta una tienda? Escribe su nombre" autocomplete="off"><button class="btn ghost" type="submit">Agregar</button></form>
     </div>
@@ -402,7 +400,7 @@ const CHAIN_BY={};CHAINS.forEach(([g,l])=>l.forEach(([id,name,color,url])=>CHAIN
 let STORES=[];
 function syncStores(){(S.custom||[]).forEach(c=>{CHAIN_BY[c.id]={...c,grp:"Agregadas por ti"}});
   STORES=(S.myStores||[]).filter(id=>CHAIN_BY[id]).map(id=>{const c=CHAIN_BY[id];return{...c,url:c.url||(q=>"https://www.google.com/search?q="+q+"+"+encodeURIComponent(c.name)+"+precio")}})}
-const mapUrl=name=>"https://www.google.com/maps/search/"+encodeURIComponent(name+" cerca de "+((S.loc||"").trim()||"mí"));
+const mapUrl=name=>"https://www.google.com/maps/search/"+encodeURIComponent(name+" cerca de mí");
 
 const DAYS=["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"];
 const DSHORT=["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"];
@@ -754,7 +752,6 @@ function renderChains(){
     S.myStores=S.myStores.includes(id)?S.myStores.filter(x=>x!==id):[...S.myStores,id];save();syncStores();renderChains();renderList();
     toast(S.myStores.includes(id)?`${CHAIN_BY[id].name} agregada a tus tiendas`:`${CHAIN_BY[id].name} quitada`)});
 }
-$("#loc").oninput=e=>{S.loc=e.target.value;save();renderChains()};
 $("#addChain").onsubmit=e=>{e.preventDefault();const v=$("#newChain").value.trim();if(!v)return;
   const id="c_"+norm(v).replace(/[^a-z0-9]+/g,"_");if(!CHAIN_BY[id]){S.custom=[...(S.custom||[]),{id,name:v,color:"#7a8a80"}];S.myStores=[...(S.myStores||[]),id]}
   $("#newChain").value="";save();syncStores();renderChains();renderList();toast(`${v} agregada`)};
@@ -879,23 +876,17 @@ function openSettings(){
     <div class="setrow"><label for="setName"><b>Tu nombre</b></label><input id="setName" class="search" value="${esc(S.name||"")}" maxlength="30"></div>
     <div class="setrow"><b>Tamaño de letra</b><div class="sizes">${[[1,"Normal"],[1.15,"Grande"],[1.3,"Muy grande"]].map(([v,l])=>`<button class="sizebtn" data-size="${v}" aria-pressed="${(S.size||1)==v}" style="font-size:${16*v}px">${l}<small>Aa</small></button>`).join("")}</div></div>
     <div class="setrow"><b>Modo de color</b><div class="sizes">${[["system","Automático"],["light","Claro"],["dark","Oscuro"]].map(([v,l])=>`<button class="sizebtn" data-theme-opt="${v}" aria-pressed="${S.theme===v}">${v==="dark"?"🌙 ":v==="light"?"☀️ ":""}${l}</button>`).join("")}</div></div>
-    <div class="setrow"><label for="setLoc"><b>Tu comuna o dirección</b></label><input id="setLoc" class="search" value="${esc(S.loc||"")}" placeholder="Ej: Puente Alto"><span class="small muted">Se usa para buscar las tiendas más cercanas.</span></div>
-    <div class="setrow"><b>Instalar en el celular</b>
-      <div class="howto"><p><b>Android (Chrome):</b> abre la app, toca el menú ⋮ arriba a la derecha y elige <b>«Agregar a la pantalla principal»</b>.</p>
-      <p><b>iPhone (Safari):</b> toca el botón Compartir (cuadrado con flecha) y elige <b>«Agregar a inicio»</b>.</p>
-      <p class="small muted">Queda un ícono como cualquier app. Tus ingredientes, semana y lista se guardan en ese celular.</p></div></div>
     <button class="btn ghost" id="replayOnb">🐶 Ver la bienvenida de Cuchu otra vez</button>
   </div></div></div>`;
   const close=()=>{$("#sheetHost").innerHTML=""};
   $("#closeS").onclick=close;$("#sbg").onclick=e=>{if(e.target.id==="sbg")close()};
   $("#setName").oninput=e=>{S.name=e.target.value.trim();save();applyPrefs()};
-  $("#setLoc").oninput=e=>{S.loc=e.target.value;$("#loc").value=S.loc;save();renderChains()};
   $("#sheetHost").querySelectorAll("[data-size]").forEach(b=>b.onclick=()=>{S.size=+b.dataset.size;save();applyPrefs();openSettings()});
   $("#sheetHost").querySelectorAll("[data-theme-opt]").forEach(b=>b.onclick=()=>{S.theme=b.dataset.themeOpt;save();applyPrefs();openSettings()});
   $("#replayOnb").onclick=()=>{close();onboarding()};
 }
 $("#settingsBtn").onclick=openSettings;
-syncStores();$("#loc").value=S.loc||"";applyPrefs();
+syncStores();applyPrefs();
 renderPantry();renderResults();renderWeek();renderChains();renderList();
 if(!S.onboarded)onboarding();
 </script>
