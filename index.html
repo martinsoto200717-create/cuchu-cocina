@@ -261,6 +261,13 @@ select.search{appearance:auto}
 .howto{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:8px;font-size:15px}
 .done-dog{display:flex;align-items:center;gap:12px;text-align:left}
 .done-dog .mini{width:90px;flex:none}.done-dog .mini svg{width:100%}
+.locgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.locgrid label{display:flex;flex-direction:column;gap:4px;min-width:0}
+@media (max-width:480px){.locgrid{grid-template-columns:1fr}}
+.kinds{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:8px}
+.kind{display:flex;gap:8px;align-items:center;text-decoration:none;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-weight:600;font-size:15px;min-height:48px}
+.kind:hover{border-color:var(--accent)}
+.kind span{font-size:20px}
 .chainlist{display:flex;flex-direction:column;gap:6px;padding-bottom:12px}
 .chain{display:flex;align-items:center;gap:10px;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:6px 8px 6px 12px}
 .chain i{width:12px;height:12px;border-radius:50%;flex:none}
@@ -342,8 +349,16 @@ select.search{appearance:auto}
     <div class="panel stack" style="gap:12px">
       <div>
         <h3>Tiendas cerca de ti</h3>
-        <p class="small muted">Toca «Más cercano» y se abre el mapa con los locales de esa tienda más cerca de donde estás (usa la ubicación de tu celular).</p>
+        <p class="small muted">Elige tu región y comuna, o usa la ubicación de tu celular. Cada botón abre el mapa con todos los locales registrados ahí, del más cercano al más lejano.</p>
       </div>
+      <div class="locgrid">
+        <label for="selReg" class="small"><b>Región</b><select id="selReg" class="search"></select></label>
+        <label for="selCom" class="small"><b>Comuna</b><select id="selCom" class="search"></select></label>
+      </div>
+      <button class="btn ghost" id="useGps" type="button">📍 Usar mi ubicación actual</button>
+      <p class="small" id="locNow"></p>
+      <div><b class="small">Todo lo que hay <span id="locWhere"></span></b><div class="kinds" id="kinds"></div></div>
+      <b class="small">Cadenas y tiendas</b>
       <div id="chains"></div>
       <form class="addrow" id="addChain"><input id="newChain" class="search" placeholder="¿Falta una tienda? Escribe su nombre" autocomplete="off"><button class="btn ghost" type="submit">Agregar</button></form>
     </div>
@@ -400,7 +415,37 @@ const CHAIN_BY={};CHAINS.forEach(([g,l])=>l.forEach(([id,name,color,url])=>CHAIN
 let STORES=[];
 function syncStores(){(S.custom||[]).forEach(c=>{CHAIN_BY[c.id]={...c,grp:"Agregadas por ti"}});
   STORES=(S.myStores||[]).filter(id=>CHAIN_BY[id]).map(id=>{const c=CHAIN_BY[id];return{...c,url:c.url||(q=>"https://www.google.com/search?q="+q+"+"+encodeURIComponent(c.name)+"+precio")}})}
-const mapUrl=name=>"https://www.google.com/maps/search/"+encodeURIComponent(name+" cerca de mí");
+const REGIONES={
+"Arica y Parinacota":["Arica","Camarones","Putre","General Lagos"],
+"Tarapacá":["Iquique","Alto Hospicio","Pozo Almonte","Camiña","Colchane","Huara","Pica"],
+"Antofagasta":["Antofagasta","Mejillones","Sierra Gorda","Taltal","Calama","Ollagüe","San Pedro de Atacama","Tocopilla","María Elena"],
+"Atacama":["Copiapó","Caldera","Tierra Amarilla","Chañaral","Diego de Almagro","Vallenar","Alto del Carmen","Freirina","Huasco"],
+"Coquimbo":["La Serena","Coquimbo","Andacollo","La Higuera","Paihuano","Vicuña","Illapel","Canela","Los Vilos","Salamanca","Ovalle","Combarbalá","Monte Patria","Punitaqui","Río Hurtado"],
+"Valparaíso":["Valparaíso","Viña del Mar","Concón","Quilpué","Villa Alemana","Casablanca","Juan Fernández","Puchuncaví","Quintero","Isla de Pascua","Los Andes","Calle Larga","Rinconada","San Esteban","La Ligua","Cabildo","Papudo","Petorca","Zapallar","Quillota","La Calera","Hijuelas","La Cruz","Nogales","San Antonio","Algarrobo","Cartagena","El Quisco","El Tabo","Santo Domingo","San Felipe","Catemu","Llaillay","Panquehue","Putaendo","Santa María","Limache","Olmué"],
+"Metropolitana de Santiago":["Santiago","Cerrillos","Cerro Navia","Conchalí","El Bosque","Estación Central","Huechuraba","Independencia","La Cisterna","La Florida","La Granja","La Pintana","La Reina","Las Condes","Lo Barnechea","Lo Espejo","Lo Prado","Macul","Maipú","Ñuñoa","Pedro Aguirre Cerda","Peñalolén","Providencia","Pudahuel","Quilicura","Quinta Normal","Recoleta","Renca","San Joaquín","San Miguel","San Ramón","Vitacura","Puente Alto","Pirque","San José de Maipo","Colina","Lampa","Tiltil","San Bernardo","Buin","Calera de Tango","Paine","Melipilla","Alhué","Curacaví","María Pinto","San Pedro","Talagante","El Monte","Isla de Maipo","Padre Hurtado","Peñaflor"],
+"O'Higgins":["Rancagua","Codegua","Coinco","Coltauco","Doñihue","Graneros","Las Cabras","Machalí","Malloa","Mostazal","Olivar","Peumo","Pichidegua","Quinta de Tilcoco","Rengo","Requínoa","San Vicente","Pichilemu","La Estrella","Litueche","Marchigüe","Navidad","Paredones","San Fernando","Chépica","Chimbarongo","Lolol","Nancagua","Palmilla","Peralillo","Placilla","Pumanque","Santa Cruz"],
+"Maule":["Talca","Constitución","Curepto","Empedrado","Maule","Pelarco","Pencahue","Río Claro","San Clemente","San Rafael","Cauquenes","Chanco","Pelluhue","Curicó","Hualañé","Licantén","Molina","Rauco","Romeral","Sagrada Familia","Teno","Vichuquén","Linares","Colbún","Longaví","Parral","Retiro","San Javier","Villa Alegre","Yerbas Buenas"],
+"Ñuble":["Chillán","Chillán Viejo","Bulnes","El Carmen","Pemuco","Pinto","Quillón","San Ignacio","Yungay","Quirihue","Cobquecura","Coelemu","Ninhue","Portezuelo","Ránquil","Treguaco","San Carlos","Coihueco","Ñiquén","San Fabián","San Nicolás"],
+"Biobío":["Concepción","Talcahuano","Hualpén","San Pedro de la Paz","Chiguayante","Coronel","Lota","Penco","Tomé","Hualqui","Florida","Santa Juana","Lebu","Arauco","Cañete","Contulmo","Curanilahue","Los Álamos","Tirúa","Los Ángeles","Antuco","Cabrero","Laja","Mulchén","Nacimiento","Negrete","Quilaco","Quilleco","San Rosendo","Santa Bárbara","Tucapel","Yumbel","Alto Biobío"],
+"La Araucanía":["Temuco","Padre Las Casas","Carahue","Cunco","Curarrehue","Freire","Galvarino","Gorbea","Lautaro","Loncoche","Melipeuco","Nueva Imperial","Perquenco","Pitrufquén","Pucón","Saavedra","Teodoro Schmidt","Toltén","Vilcún","Villarrica","Cholchol","Angol","Collipulli","Curacautín","Ercilla","Lonquimay","Los Sauces","Lumaco","Purén","Renaico","Traiguén","Victoria"],
+"Los Ríos":["Valdivia","Corral","Lanco","Los Lagos","Máfil","Mariquina","Paillaco","Panguipulli","La Unión","Futrono","Lago Ranco","Río Bueno"],
+"Los Lagos":["Puerto Montt","Puerto Varas","Calbuco","Cochamó","Fresia","Frutillar","Los Muermos","Llanquihue","Maullín","Castro","Ancud","Chonchi","Curaco de Vélez","Dalcahue","Puqueldón","Queilén","Quellón","Quemchi","Quinchao","Osorno","Puerto Octay","Purranque","Puyehue","Río Negro","San Juan de la Costa","San Pablo","Chaitén","Futaleufú","Hualaihué","Palena"],
+"Aysén":["Coyhaique","Lago Verde","Aysén","Cisnes","Guaitecas","Cochrane","O'Higgins","Tortel","Chile Chico","Río Ibáñez"],
+"Magallanes":["Punta Arenas","Laguna Blanca","Río Verde","San Gregorio","Cabo de Hornos","Antártica","Porvenir","Primavera","Timaukel","Natales","Torres del Paine"]
+};
+const placeTxt=()=>S.comuna?` en ${S.comuna}, ${S.region}, Chile`:" cerca de mí";
+const mapUrl=name=>"https://www.google.com/maps/search/"+encodeURIComponent(name+placeTxt());
+const KINDS=[["🛒","Supermercados"],["🏪","Minimarkets y almacenes"],["🥬","Ferias libres"],["🍎","Verdulerías"],["🥩","Carnicerías"],["🍞","Panaderías"],["🐟","Pescaderías"],["🧀","Fiambrerías"],["📦","Mayoristas"],["💊","Farmacias"],["🔨","Ferreterías"],["🍷","Botillerías"],["🐶","Tiendas de mascotas"],["🧴","Perfumerías y aseo"],["👕","Tiendas de ropa"],["📱","Tiendas de tecnología"],["📚","Librerías"],["🏬","Malls"]];
+function renderLoc(){
+  const rs=Object.keys(REGIONES);
+  $("#selReg").innerHTML=`<option value="">Elige región</option>`+rs.map(r=>`<option ${r===S.region?"selected":""}>${r}</option>`).join("");
+  const cs=S.region?REGIONES[S.region]:[];
+  $("#selCom").innerHTML=`<option value="">${S.region?"Elige comuna":"Primero la región"}</option>`+[...cs].sort((a,b)=>a.localeCompare(b,"es")).map(c=>`<option ${c===S.comuna?"selected":""}>${c}</option>`).join("");
+  $("#selCom").disabled=!S.region;
+  $("#locNow").innerHTML=S.comuna?`Buscando en <b>${esc(S.comuna)}</b>.`:`Buscando <b>cerca de tu ubicación</b> (el mapa usa el GPS de tu celular).`;
+  $("#locWhere").textContent=S.comuna?"en "+S.comuna:"cerca de ti";
+  $("#kinds").innerHTML=KINDS.map(([ic,k])=>`<a class="kind" target="_blank" rel="noopener" href="${mapUrl(k)}"><span aria-hidden="true">${ic}</span>${k}</a>`).join("");
+}
 
 const DAYS=["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"];
 const DSHORT=["Lun","Mar","Mié","Jue","Vie","Sáb","Dom"];
@@ -416,7 +461,7 @@ if(!S){const old=load("quecocino.v1");
     ["huevo","papa","cebolla","arroz","tomate","pollo","zanahoria","pasta","leche","comino","oregano","aji_color","pimienta","ajo","harina","azucar"];
   base.forEach(i=>{if(FAM[i])S.sel[i]=["*"]});
   if(!old){S.sel.vacuno=["Carne molida"];S.sel.queso=["Gauda"]}}
-S=Object.assign({time:0,cal:0,dif:0,cat:"",rq:"",list:[],week:Array(7).fill(null),sel:{},name:"",theme:"system",size:1,loc:"",custom:[],myStores:["lider","jumbo","unimarc","tottus","santaisabel"],onboarded:false},S);
+S=Object.assign({time:0,cal:0,dif:0,cat:"",rq:"",list:[],week:Array(7).fill(null),sel:{},name:"",theme:"system",size:1,loc:"",custom:[],myStores:["lider","jumbo","unimarc","tottus","santaisabel"],onboarded:false,region:"",comuna:""},S);
 S.week=S.week.map(id=>id&&R_BY[id]?id:null);
 for(const k in S.sel)if(!FAM[k]||!S.sel[k].length)delete S.sel[k];
 const hasFam=f=>STAPLES.includes(f)||!!(S.sel[f]&&S.sel[f].length);
@@ -741,6 +786,9 @@ $("#weekToList").onclick=()=>{const m=weekMissing();if(!m.length){toast("No falt
 
 /* ---------- Compras ---------- */
 function addToList(names){let n=0;names.forEach(name=>{if(!S.list.some(x=>norm(x.name)===norm(name))){S.list.push({id:Date.now()+"-"+Math.random().toString(36).slice(2,6),name,done:false,prices:{},open:false});n++}});save();renderList();return n}
+$("#selReg").onchange=e=>{S.region=e.target.value;S.comuna="";save();renderLoc();renderChains()};
+$("#selCom").onchange=e=>{S.comuna=e.target.value;save();renderLoc();renderChains()};
+$("#useGps").onclick=()=>{S.comuna="";save();renderLoc();renderChains();toast("Listo, se buscará cerca de tu ubicación")};
 function renderChains(){
   const all=[...CHAINS.map(([g,l])=>[g,l.map(x=>x[0])]),...((S.custom||[]).length?[["Agregadas por ti",S.custom.map(c=>c.id)]]:[])];
   $("#chains").innerHTML=all.map(([g,ids],k)=>`<details class="cat" ${k===0?"open":""}><summary><span>${g} <span class="muted small">(${ids.length})</span></span><span class="arr">›</span></summary>
@@ -876,18 +924,16 @@ function openSettings(){
     <div class="setrow"><label for="setName"><b>Tu nombre</b></label><input id="setName" class="search" value="${esc(S.name||"")}" maxlength="30"></div>
     <div class="setrow"><b>Tamaño de letra</b><div class="sizes">${[[1,"Normal"],[1.15,"Grande"],[1.3,"Muy grande"]].map(([v,l])=>`<button class="sizebtn" data-size="${v}" aria-pressed="${(S.size||1)==v}" style="font-size:${16*v}px">${l}<small>Aa</small></button>`).join("")}</div></div>
     <div class="setrow"><b>Modo de color</b><div class="sizes">${[["system","Automático"],["light","Claro"],["dark","Oscuro"]].map(([v,l])=>`<button class="sizebtn" data-theme-opt="${v}" aria-pressed="${S.theme===v}">${v==="dark"?"🌙 ":v==="light"?"☀️ ":""}${l}</button>`).join("")}</div></div>
-    <button class="btn ghost" id="replayOnb">🐶 Ver la bienvenida de Cuchu otra vez</button>
   </div></div></div>`;
   const close=()=>{$("#sheetHost").innerHTML=""};
   $("#closeS").onclick=close;$("#sbg").onclick=e=>{if(e.target.id==="sbg")close()};
   $("#setName").oninput=e=>{S.name=e.target.value.trim();save();applyPrefs()};
   $("#sheetHost").querySelectorAll("[data-size]").forEach(b=>b.onclick=()=>{S.size=+b.dataset.size;save();applyPrefs();openSettings()});
   $("#sheetHost").querySelectorAll("[data-theme-opt]").forEach(b=>b.onclick=()=>{S.theme=b.dataset.themeOpt;save();applyPrefs();openSettings()});
-  $("#replayOnb").onclick=()=>{close();onboarding()};
 }
 $("#settingsBtn").onclick=openSettings;
 syncStores();applyPrefs();
-renderPantry();renderResults();renderWeek();renderChains();renderList();
+renderPantry();renderResults();renderWeek();renderLoc();renderChains();renderList();
 if(!S.onboarded)onboarding();
 </script>
 <script>if("serviceWorker" in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js").catch(()=>{});</script></body></html>
